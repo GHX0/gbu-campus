@@ -13,12 +13,13 @@ let ready=false,game,world,demo=null,mode='title',quality='Smooth',sound=true,ma
 let renderScale=.8,last=0,accumulator=0,uiClock=0,adaptClock=0,elapsed=0,freeze=false,reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 let fps=60,frames=[],frameMetrics={mean:16.7,p95:16.7},drag=null,stepBob=0,qualityWarmup=8;
 const key=new Set(),touch={x:0,z:0,interact:false,run:false},lookVector=new THREE.Vector3(),moonColor=new THREE.Color(0xa9cfdf);
+let sprintToggle=false;
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x172c3d);scene.fog=new THREE.Fog(0x243b47,80,355);
 const camera=new THREE.PerspectiveCamera(67,innerWidth/innerHeight,.08,600);camera.rotation.order='YXZ';scene.add(camera);
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',alpha:false});
 renderer.setClearColor(0x172c3d);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;
 renderer.shadowMap.enabled=false;renderer.setPixelRatio(renderScale);renderer.setSize(innerWidth,innerHeight);root.appendChild(renderer.domElement);
-renderer.domElement.setAttribute('aria-label','Three-dimensional haunted campus. Drag to look; WASD to walk, Shift to sprint, Space to kick.');renderer.domElement.tabIndex=0;
+renderer.domElement.setAttribute('aria-label','Three-dimensional haunted campus. Drag to look; WASD to walk, Shift toggle sprint, Space to kick.');renderer.domElement.tabIndex=0;
 const hemi=new THREE.HemisphereLight(0xbadce8,0x41544a,2.15);scene.add(hemi);
 const moon=new THREE.DirectionalLight(moonColor,2.0);moon.position.set(-38,58,-25);scene.add(moon);
 const torch=new THREE.SpotLight(0xffe3ac,45,31,.52,.6,1.1);scene.add(torch,torch.target);
@@ -41,7 +42,7 @@ const ring=new THREE.Mesh(new THREE.RingGeometry(.8,1.12,24),new THREE.MeshBasic
 const bellVisual=new THREE.Mesh(new THREE.OctahedronGeometry(.22),new THREE.MeshBasicMaterial({color:0xffce87}));scene.add(bellVisual);bellVisual.visible=false;
 const zombieVisuals=createZombieVisuals(scene,camera);
 
-function clearInput(){key.clear();touch.x=0;touch.z=0;touch.interact=false;touch.run=false;drag=null;}
+function clearInput(){key.clear();sprintToggle=false;touch.x=0;touch.z=0;touch.interact=false;touch.run=false;drag=null;}
 function begin(isDemo=false,keep=false){if(!ready)return;audio.stopSession();audio.beginSession();clearInput();game.reset(keep);demo=isDemo?new DemoPlayer(game,{portrait:innerWidth/innerHeight<.8}):null;mode='playing';mapOpen=false;freeze=false;qualityWarmup=4;hemi.intensity=2.15;scene.background.set(0x172c3d);scene.fog.color.set(0x243b47);updateUI();}
 function pause(){if(mode==='playing'){mapOpen=false;mode='paused';game.mode='paused';audio.setPaused(true);clearInput();updateUI();}else if(mode==='paused')resume();}
 function resume(){if(mode!=='paused')return;mode='playing';game.mode='playing';clearInput();updateUI();audio.beginSession();audio.setPaused(false);}
@@ -59,6 +60,7 @@ addEventListener('keydown',e=>{
   if(mode!=='playing')return;
   if(e.code==='KeyM'){toggleMap();return;}
   if(demo||mapOpen)return;
+  if(e.code==='ShiftLeft'||e.code==='ShiftRight'){sprintToggle=!sprintToggle;return;}
   key.add(e.code);if(e.code==='KeyF')game.toggleTorch();if(e.code==='KeyQ')game.ringBell();if(e.code==='KeyE')game.pressInteract();
   if(e.code==='Space')game.pressKick();
   if(/^Digit[123]$/.test(e.code))game.note(Number(e.code.slice(-1)));
@@ -77,7 +79,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{if(mode!=='playing'||mapO
 renderer.domElement.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;look(e.clientX-drag.x,e.clientY-drag.y);drag.x=e.clientX;drag.y=e.clientY;});
 for(const name of ['pointerup','pointercancel','lostpointercapture'])renderer.domElement.addEventListener(name,()=>drag=null);
 function resize(){renderer.setPixelRatio(Math.min(devicePixelRatio,quality==='Detail'?1.25:renderScale));renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}addEventListener('resize',resize);
-function input(){return {x:touch.x+(key.has('KeyD')||key.has('ArrowRight')?1:0)-(key.has('KeyA')||key.has('ArrowLeft')?1:0),z:touch.z+(key.has('KeyW')||key.has('ArrowUp')?1:0)-(key.has('KeyS')||key.has('ArrowDown')?1:0),run:touch.run||key.has('ShiftLeft')||key.has('ShiftRight'),interact:touch.interact||key.has('KeyE')};}
+function input(){return {x:touch.x+(key.has('KeyD')||key.has('ArrowRight')?1:0)-(key.has('KeyA')||key.has('ArrowLeft')?1:0),z:touch.z+(key.has('KeyW')||key.has('ArrowUp')?1:0)-(key.has('KeyS')||key.has('ArrowDown')?1:0),run:touch.run||sprintToggle,interact:touch.interact||key.has('KeyE')};}
 function updateUI(){
   const g=game;ui.update({ready,mode,demo:!!demo,title:'After the Last Bell',objective:g?.memories.length===4?'Return the memories to the plaza gate':'Recover four campus memories',hint:'M · Campus map. Follow the promenade, garden paths and rear arcade.',caption:demo?.caption||'',memories:CAMPUS.stations.map(s=>({id:s.id,title:s.title,done:g?.memories.includes(s.id)||false})),navigation:g?.navigation(),track:g?.track,focus:g?.focus||null,health:g?.health??100,biteFlash:g?.biteFlash??0,kickCooldown:g?.kickCooldown??0,chasers:g?.chasers??0,battery:g?.battery??100,fear:g?.fear??0,noise:g?.noise??0,torch:g?.torch??true,safe:g?.safe??false,time:g?.time??0,quality,sound,decoyCooldown:g?.decoyCooldown??0,mapOpen,player:g?.player||CAMPUS.spawn,ghost:{x:g?.ghost.x||0,z:g?.ghost.z||0,visible:g?.ghost.visible&&distance(g.player,g.ghost)<18},fps,message:g?.message||''});
 }
