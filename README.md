@@ -42,6 +42,13 @@ The original development checkout uses a junction to local Three.js/Vite depende
 
 The Git repository includes `tour/`, `night/`, `shared/`, source assets, build/server tools and written evidence. Generated `dist/` and `release/`, dependencies, local `Old/` snapshots, screenshots, recordings and raw QA results are excluded. Evidence documents describe historical runs; their local capture paths are not included in this source repository.
 
+### Beginner change in the night mode
+
+The night mode now uses a toggle for sprinting: click Shift once to start sprinting and click it again to return to walking. This change is implemented in 
+ight/src/main.js, and the control hints are updated in 
+ight/index.html.
+
+Known limitation: this change applies to the keyboard Shift control in the night mode only. The touch sprint button still uses press-and-hold behavior.
 ## GitHub Pages hosting
 
 Production hosting is **GitHub Pages**, at https://greenquark.github.io/world/; night mode is at https://greenquark.github.io/world/night/.
